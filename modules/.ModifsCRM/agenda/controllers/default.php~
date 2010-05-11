@@ -1,0 +1,48 @@
+<?php
+
+class defaultCtrl {
+	
+	public function common() {
+		$vue = $this->getView();
+		$vue->setTitle("Accueil Agenda");
+		
+		$vue->addCSSLink("Style");
+		return $vue;
+	}
+	
+	public function index() {
+		// récupération de la vue
+		$vue = $this->common();
+		
+		// sélection du template
+		$vue->setTemplate('accueil');
+		
+		
+		// génération du flux HTML
+		$vue->render();
+	}
+	
+	public function check() {
+		$vue = $this->common();
+		
+		$user = new UtilisateurModel();
+		$agenda = new AgendaUtilisateurModel();
+		
+		// paramétrage de l'objet pour préparer la requête
+		$user->login = $this->params('login');
+		
+		// requete type "select * from utilisateur where login='truc'"
+		$reponse = $user->get(array('login'));
+		// la normalement on a un objet Utilisateur complet
+		if ($reponse)
+		    echo "<h2>Login: ".$reponse->registerdate."</h2>";
+		else	echo "<h2>Login failed</h2>";
+		echo "<h2>Login failed</h2>";
+		
+		$agenda = new AgendaUtilisateurModel();
+		$agenda->utilisateur = $user->login;
+		$reponse = $agenda->get(array('agenda'));
+	}
+}
+
+?>

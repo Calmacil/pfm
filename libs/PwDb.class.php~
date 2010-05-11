@@ -1,0 +1,321 @@
+<?php
+/**
+*	Module d'accès aux données
+*
+*	@author Thomas Lenoël
+*	@version 1.0
+*	@package libs
+*
+*	Format des modèles :<br />
+*	<code>
+*	class UnModeleModel extends PwDb {
+*
+*		$fields = array('unchamp'=>'typechamp', 'unautrechamp'=>'typechamp', etc..)
+*		$primary_key = array('unchamp', 'unautrechamp')
+*		$table = 'nom_de_la_table_sql'
+*
+*	}
+*	</code><br />
+*
+*/
+
+	/**
+	*	Module d'accès aux données
+	*
+	*	Toutes les classes de Modele doivent hériter de cette classe<br />
+	*	et surcharger les attributs $fields et $table
+	*	@package libs
+	*/
+	class PwDb {
+
+		/**
+		*	Liste des champs de la table
+		*
+		*	Doit être surchargé dans le modèle
+		*	@var array de (string => string)
+		*/
+		protected $fields = array();
+
+		/**
+		*	Ficher de configuration
+		*	@var AppConfig
+		*/
+		private static $conf;
+
+		/**
+		*	Nom de la table SQL
+		*
+		*	Doit être surchargé dans le modèle
+		*	@var string
+		*/
+		protected $table;
+
+		/**
+		*	Objet MYSQLI
+		*	@var object
+		*/
+		private $cn;
+
+		/**
+		*	Requête SQL
+		*	@var string
+		*/
+		private $statement = null;
+
+		/**
+		*	Initialisation
+		*
+		*	Ouvre la connection avec la BDD<br />
+		*	Il suffit d'instancier un modèle pour être connecté !
+		*/
+		public function __construct() {
+			$this->conf = $GLOBALS['conf'];
+
+			$this->cn = new mysqli($this->conf->db_server,
+					$this->conf->db_login,
+					$this->conf->db_password,
+					$this->conf->db_name);
+			
+		}
+
+		/**
+		*	Destructeur de la classe
+		*
+		*	Ferme automatiquement la connection à la BDD<br />
+		*	Pas 
+		*/
+		public function __destruct() {
+			$this->cn->close();
+		}
+
+		/**
+		*	Exécute une requête
+		*	@return resultset OU boolean OU null
+		*/
+		public function query() {
+
+			if ($this->conf->db_debug) print $this->statement;
+			$result = $this->cn->query($this->statement) or die (mysqli_error($this->cn));
+			if ($result) return $result;
+			return null;
+			
+		}
+
+		/**
+		*	Prépare une requête d'insertion puis appelle $this->query();
+		*
+		*	Renseigner les champs du modèle avant.<br />
+		*	Exemple si $fields vaut array('id'=>'int', 'login'=>'string', 'passwd'=>'string)::<br />
+		*
+		*	<code>
+		*		$pers = new PersonneModel();
+		*
+		*		$pers->id = null;
+		*		$pers->login = "unLogin";
+		*		$pers->passwd = "unPasswd";
+		*
+		*		$pers->insert();
+		*	</code>
+		*
+		*	@return boolean
+		*/
+		public function insert() {
+
+			$liste = implode (", ", array_keys($this->fields));
+			$cpt = false;
+			$vals = "";
+			foreach ($this->fields as $k => $v) {
+				if ($cpt) $vals .= ', ';
+				$cpt = true;
+				if ($v == 'string') $vals.="'";
+				if (!isset($this->{$k}) || empty($this->{$k})) $this->{$k} = 'NULL';
+				$vals .= $this->{$k};
+				if ($v == 'string') $vals.="'";
+			}
+
+			$this->statement = "INSERT INTO ".$this->table." (".$liste.") VALUES (".$vals.")";
+			
+ 			return $this->query();
+			
+		}
+
+		/**
+		*	Prépare puis exécute une requête update
+		*
+		*	s'utilise de la même manière que insert()<br />
+		*	<br />
+		*	Exemple si $fields vaut array('id'=>'int', 'login'=>'string', 'passwd'=>'string)::<br />
+		*
+		*	<code>
+		*		$pers = new PersonneModel();
+		*
+		*		$pers->get(1);
+		*
+		*		$pers->id = null;
+		*		$pers->login = "unLogin";
+		*		$pers->passwd = "unPasswd";
+		*
+		*		$pers->update();
+		*	</code>
+		*
+		*	@return boolean
+		*/
+		public function update($keys) {
+
+			$upf = "";
+			$nf = false;
+			foreach ($this->fields as $k => $v) {
+				if (!in_array($k, $this->primary_key)) {
+					if ($nf) $upf.=', ';
+					$nf = true;
+					if ($v == 'string') $q = '\'';
+					else $q = '';
+					$upf.=$k.'='.$q.$this->{$k}.$q;
+				}
+			}
+			
+			if (is_array($keys)) {
+				$cond = "";
+				foreach($keys as $k => $v) {
+					if ($k == O) $cond .= " WHERE ";
+					else $cond .= " AND ";
+					$cond .= $v."='".$this->{$v}."'";
+				}
+			} else {
+				$cond = " WHERE ".$this->primary_key[0]."=".$keys;
+			}
+
+			$this->statement = "UPDATE ".$this->table." SET ".$upf.$cond;
+			return $this->query();
+
+		}
+
+		/**
+		*	Prépare et exécute une requête DELETE
+		*	@param $arg string ou tableau de strings; les noms des colonnes
+		*
+		*	<code>
+		*		$pers = new PersonneModel();
+		*
+		*		// delete sur un ID précis
+		*		$pers->delete(1);
+		*
+		*		// delete toutes les personnes dont le mot de passe est "zzaou"
+		*		$pers->delete(array("passwd"=>"zzaou"));
+		*	</code>
+		*	
+		*	@return boolean ou null
+		*/
+		public function delete($arg = null) {
+			$this->flush();
+			if (!empty($arg)) {
+				if (is_array($arg)) {
+					foreach ($arg as $k => $v) {
+						if (in_array($k, array_keys($this->fields))) {
+							$this->{$k} = $v;
+						} else throw new Exception("Le champ ".$k." n'existe pas dans la table ".$this->table);
+					}
+				} else {
+					$k = $this->primary_key[0];
+					$this->{$k} = $arg;
+				}
+			}
+
+			$fw = true;
+			$cd = "";
+			foreach($this->fields as $k=>$v) {
+				if (!empty($this->{$k})) {
+					if ($fw) $cd.= " where ";
+					else $cd.= " and ";
+					$fw = false;
+
+					$q = '';
+					if ($v == "string") $q = '\'';
+
+					$cd.=$k."=".$q.$this->{$k}.$q;
+				}
+			}
+
+			$this->statement = "DELETE FROM ".$this->table.$cd;
+			return $this->query();
+		}
+
+		/**
+		*	Prépare et exécute une requête SELECT sur un ou plusieurs champs;
+		*
+		*	<code>
+		*		$pers = new PersonneModel();
+		*
+		*		// select sur l'ID n° 1
+		*		$result = $pers->get(1);
+		*		print $result->login;
+		*
+		*		// select sur le login "toto"
+		*		$pers->login = "toto";
+		*		$result = $pers->get(array('login'));
+		*		while ($ligne = mysqli_fetch_object($result))
+		*			print $ligne->login
+		*	</code>
+		*
+		*	@param $keys une valeur de primary key si celle ci est sur une seule colonne; sinon, un tableau de noms de colonnes
+		*	@return resultset ou null
+		*/
+		public function get($keys, $like=false) {
+
+			$this->statement = "SELECT * FROM ".$this->table;
+
+			if (is_array($keys)) {
+				$ft = true;
+				foreach ($keys as $k) {
+					if (in_array($k, array_keys($this->fields))) {
+						if ($ft) $this->statement.=" WHERE ";
+						else $this->statement.=" AND ";
+						$ft = false;
+						$q = "";
+						if ($this->fields[$k] == "string") $q = "'";
+
+						if ($like) $this->statement .= $k ." LIKE '%".$this->{$k}."%'";
+						else $this->statement .= $k."=".$q.$this->{$k}.$q;
+					}
+				}
+			} else {
+				$this->statement .= " WHERE ".$this->primary_key[0]."='".$keys."'";
+			}
+			
+			$res = $this->query();
+
+			if ($res->num_rows == 1 && !is_array($keys)) {
+				while ($ligne = $res->fetch_object()) return $ligne;
+			}
+			else return $res;
+		}
+
+		/**
+		*	Récupère tout le contenu de la table
+		*	@return resultset ou null
+		*/
+		public function fetchAll() {
+			$this->statement = "SELECT * FROM ".$this->table;
+			return $this->query();
+		}
+
+		/**
+		*	Effectue une requête custom; pour les requêtes que le module ne peut pas générer tout seul
+		*	@return resultset, boolean ou null
+		*/
+		public function rawQuery($arg) {
+			$this->statement = $arg;
+			return $this->query();
+		}
+
+		/**
+		*	vide tous les champs du modèle
+		*/
+		public function flush() {
+			foreach ($this->fields as $k => $v) {
+				if (isset($this->{$k})) $this->{$k} = null;
+			}
+		}
+	}
+
+?>

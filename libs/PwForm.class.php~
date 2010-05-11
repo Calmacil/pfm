@@ -1,0 +1,390 @@
+<?php
+/**
+*	Génération automatique de formulaires
+*
+*	@author Thomas Lenoël
+*	@version 1.0
+*	@package libs
+*/
+
+	/**
+	*	Génération d'un formulaire standard
+	*
+	*	@package libs
+	*/
+	class PwForm {
+
+		/**
+		*	Method d'envoi des variables
+		*	@var string: post ou get
+		*/
+		private $method;
+
+		/**
+		*	Nom du formulaire
+		*	@var string
+		*/
+		private $name;
+
+		/**
+		*	Pseudo-url de destination
+		*	@var string
+		*/
+		private $action;
+
+		/**
+		*	Indique si on force l'encapsulation du formulaire dans un tableau html
+		*	@var boolean
+		*/
+		private $tabbled;
+
+		/**
+		*	Liste des champs du formulaire
+		*	@var string[]
+		*/
+		private $FIELDS = array();
+
+		private $submit;
+
+		/**
+		*	Constructeur du formulaire
+		*	
+		*	@param name nom du formulaire (pour appels js)
+		*	@param method vaut get ou post
+		*	@param action url de destination du formulaire
+		*	@param tabbled encapsulé dans un tableau; par défaut a true
+		*/
+		public function __construct($name, $method, $action, $tabbled=true, $submit = null) {
+			$this->method = $method;
+			$this->name = $name;
+			$this->action = $action;
+			$this->tabbled = $tabbled;
+			$this->submit = $submit;
+		}
+
+		/**
+		*	Setteur de l'attribut "method"
+		*	@param $m string qui vaut 'post' ou 'get'
+		*/
+		public function setMethod($m) {
+			$this->method = $m;
+		}
+
+		/**
+		*	Setteur de l'attribut "name"
+		*	@param $name
+		*/
+		public function setName($n) {
+			$this->name = $n;
+		}
+
+		/**
+		*	Setteur de l'attribut "Action"
+		*	@param $a string qui vaut index.php/module/controlleur/action
+		*/
+		public function setAction($a) {
+			$this->action = $a;
+		}
+
+		/**
+		*	Ajoute un champ de saisie au formulaire
+		*	
+		*	@param string: type de champ (input, text, password, checkbox, etc)
+		*	@param string: attribut name
+		*	@param string: titre du champ ( = le texte qui s'affichera a côté du champ )
+		*	@param string: valeur par défaut du champ
+		*	@param string: id du champ
+		*	@param string: classe html (pour css)
+		*	@param string: fieldset contenant le champ
+		*/
+		public function addInput($type, $name, $title, $value=null, $id, $class=null, $fs=null, $sub = null) {
+			$in = '';
+			if ($this->tabbled) $in .= "\n<tr>\n\t<td>\n\t\t";
+
+			if (($type != "button") && ($type != "submit") && ($type != "cancel")) {
+				$in .= '<label';
+				if (!empty($id)) $in .= ' for="'.$id.'"';
+				$in .= '>'.$title.'</label>';
+			}
+
+
+			if ($this->tabbled) $in .= "\n\t</td>\n\t<td>\n\t\t";
+			else $in .= "<br />\n\t";
+			$in .= '<input type="'.$type.'" name="'.$name.'"';
+			if (!empty($id)) $in .= ' id="'.$id.'"';
+			if (!empty($class)) $in .= ' class="'.$class.'"';
+			if (!empty($value)) $in .= ' value="'.$value.'"';
+			if (!empty($sub)) $in .= $sub;
+			$in .= '/>';
+			if ($this->tabbled) $in .= "\n\t</td>\n</tr>";
+			else $in .= "<br />\n\t";
+		
+			if (empty($fs)) $this->FIELDS[] = $in;
+			else {
+// 				if($GLOBALS['conf']->db_debug) {
+// 					print $in;
+// 					print $fs;
+// 				}
+				if (!isset($this->FIELDS[$fs]))$this->FIELDS[$fs] = array();
+				$this->FIELDS[$fs][$name] = $in;
+			}
+		}
+
+		/**
+		*	Ajoute un fieldset au formulaire, susceptible de contenir des champs
+		*
+		*	@param string: légende du fieldset
+		*/
+		public function addFieldSet($legend) {
+			$this->FIELDS[$legend] = array();
+		}
+
+		/**
+		*	Ajoute un champ de texte
+		*
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*	@param string:
+		*	@param string:
+		* 	@param string: fieldset : si null, le champ sera "libre", sinon il sera intégré au fieldset spécifié
+		*
+		*	Résultat::
+		*	<code>
+		*	<input type="text" name="$name" id="$id" class="$class" value="$value" />
+		*	</code>
+		*/
+		public function addTextInput($name, $title, $value=null, $id=null, $class=null, $fs=null) {
+			$this->addInput('text', $name, $title, $value, $id, $class, $fs);
+		}
+		
+	/**
+		*	Ajoute un champ caché
+		*
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*	@param string:
+		*	@param string:
+		* 	@param string: fieldset : si null, le champ sera "libre", sinon il sera intégré au fieldset spécifié
+		*
+		*	Résultat::
+		*	<code>
+		*	<input type="hidden" name="$name" id="$id" class="$class" value="$value" />
+		*	</code>
+		*/
+		public function addHiddenInput($name, $title, $value=null, $id=null, $class=null, $fs=null) {
+			$this->addInput('hidden', $name, $title, $value, $id, $class, $fs);
+		}
+
+		/**
+		*	Ajoute un champ de mot de passe
+		*
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*/
+		public function addPwdInput($name, $title, $value=null, $id=null, $class=null, $fs=null) {
+			$this->addInput('password', $name, $title, $value, $id, $class, $fs);
+		}
+
+		/**
+		*	Ajoute un bouton simple
+		*
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*/
+		public function addButtonInput($name, $title, $value=null, $id=null, $class=null, $onclick=null, $fs=null) {
+			if(empty($onclick)) $cl = null;
+			else $cl = ' onclick="'.$onclick.'" ';
+			$this->addInput('button', $name, $title, $value, $id, $class, $fs, empty($onclick)?' onclick="'.$onclick.'" ':null);
+		}
+
+		/**
+		*	Ajoute un bouton "submit" de validation
+		*
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*/
+		public function addSubmitInput($name, $title, $value=null, $id=null, $class=null, $fs=null) {
+			$this->addInput('submit', $name, $title, $value, $id, $class, $fs);
+		}
+
+		/**
+		*	Ajoute un bouton "reset" qui vide les champs
+		*
+		**	@param string:
+		*	@param string:
+		* 	@param string:
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*/
+		public function addResetInput($name, $title, $value=null, $id=null, $class=null, $fs=null) {
+			$this->addInput('reset', $name, $title, $value, $id, $class, $fs);
+		}
+
+		/**
+		*	Ajoute une case à cocher
+		*
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*	@param string:
+		*	@param string:
+		* 	@param string:
+		*/
+		public function addCheckInput($name, $title, $value=null, $id=null, $class=null, $fs=null) {
+			$this->addInput('checkbox', $name, $title, $value, $id, $class, $fs);
+		}
+		
+		/**
+		*	Retourne le formulaire mis en forme pour affichage
+		*
+		*	@return string: formulaire
+		*
+		*	Exemple : contrôleur::
+		*	<code>
+		*	$vue = $this->getView();
+		*	$form = new PwForm();
+		*
+		*	// création du formu...
+		*
+		*	$vue->addForm($form->getForm(), "monFormulaire");
+		*	</code>
+		*
+		*	Exemple : template::
+		*	<code>
+		*	print $this->form("monFormulaire");
+		*	</code>
+		*/
+		public function getForm() {
+			$sub = '';
+			if (!empty($this->submit)) $sub=' onSubmit="'.$this->submit.'" ';
+			$f = '<form name="'.$this->name.'" method="'.$this->method.'" action="http://'.$_SERVER['SERVER_NAME'].'/'.$GLOBALS['conf']->app_name.'/index.php/'.$this->action.'"'.$sub.'>';
+			if ($this->tabbled) $f .= "\n<table id=\"".$this->name."\"table>\n";
+		
+			foreach ($this->FIELDS as $k => $in) {
+				if (is_numeric($k)) $f .= $in;
+				else {
+				
+					$f .= "\n<fieldset>";
+					$f .= "\n\t<legend>".$k."</legend>";
+					foreach($in as $in2) {
+						$f .= $in2;
+					}
+					$f .= "\n</fieldset>";
+				}
+			}
+			
+			if ($this->tabbled) $f .= "\n</table>\n";
+			$f .= "\n\n</form>";
+			
+			return $f;
+		}
+
+		public function addSelect($field) {
+			$this->FIELDS[] = $field->getSelect();
+		}
+		
+	}
+
+	/**
+	*	Construction de champs de formulaires "select"
+	*
+	*	@package libs
+	*	@todo ajout des optgroups
+	*/
+	class SelectBox {
+	
+		private $options = array();
+		private $id;
+		private $class;
+		private $title;
+		private $tabbled;
+		
+		public function __construct($title, $id=null, $class=null, $tabbled=true) {
+			$this->id = $id;
+			$this->class = $class;
+			$this->title = $title;
+			$this->tabbled = $tabbled;
+		}
+		
+		public function addOption($value, $title, $selected=false, $class=null) {
+			$effectiveClass = '';
+			if (!empty($class)) $effectiveClass = 'class="'.$class.'"';
+			$esel = '';
+			if ($selected) $esel = ' selected="selectec"';
+			$this->options[] = "\t<option ".$effectiveClass." value=\"".$value."\"".$esel.">".$title."</option>\n";
+		}
+		
+		public function getSelect() {
+			$id = ''; $lab = ''; $elab = '';
+			$class = '';
+			if (!empty($this->id)) {
+				$id = 'id="'.$this->id.'" name="'.$this->id.'" ';
+				$lab = '<label for="'.$this->id.'">';
+				$elab = '</label>';
+			}
+			if (!empty($this->class)) $class = 'class="'.$this->class.'" ';
+			$b = "";
+			if ($this->tabbled) $b.="<tr><td>";
+			$b .= $this->title;
+			if ($this->tabbled) $b .= "\n</td><td>";
+			$b .="<select ".$id.$class.">\n";
+			foreach($this->options as $op) $b .= $op;
+			$b .= '</select>';
+			if ($this->tabbled) $b.="</td></tr>";
+			
+			return $b;
+		}
+	
+	}
+
+	/**
+	*	Construction des blocs de boutons radios pour formulaires
+	*
+	*	@package libs
+	*/
+	class RadioGroup {
+		
+		private $radios = array();
+		private $class;
+		private $name;
+		
+		public function __construct($name, $class=null) {
+			$this->name = $name;
+			$this->class = $class;
+		}
+		
+		public function addRadio($value, $title, $id=null) {
+			$effectiveId = '';
+			$lab = ''; $elab = '';
+			$class = '';
+			if (!empty($id)) {
+				$effectiveId = ' id="'.$id.'"';
+				$lab = '<label for="'.$id.'">';
+				$elab = '</label>';
+			}
+			if (!empty($this->class)) $class = ' class="'.$class.'"';
+			$this->radios[] = '<input type="radio" '.$this->name.$effectiveId.$class.' value="'.$value.'">'.$lab.$title.$elab.'<br />';
+		}
+		
+		public function getRadios() {
+			$r = '';
+			foreach($this->radios as $rad) $r.=$rad.'\n';
+			return $r;
+		}
+	}
+?>

@@ -1,0 +1,7 @@
+<div id="fullcorps">
+
+<?php 
+  echo "<h1>Accueil Agenda</h1>";
+ ?>
+
+</div>

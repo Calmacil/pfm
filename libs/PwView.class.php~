@@ -1,0 +1,631 @@
+<?php
+/**
+*	Paramétrage de la vue
+*
+*	@author Thomas Lenoël
+*	@version 1.0
+*	@package libs
+*/
+
+	/**
+	*	Paramètre et génère une vue a partir d'un template
+	*
+	*	@package libs
+	*	@todo refactorer les méthodes de balises <link>
+	*/
+	class PwView {
+
+		/**
+		*	Nom du module
+		*	@var string
+		*/
+		private $MODULE;
+
+		/**
+		*	Balise 'title' de la vue
+		*	@var string
+		*/
+		private $TITLE;
+
+		/**
+		*	Liste des balises 'meta'
+		*	@var string[]
+		*/
+		private $METAS = array();
+
+		/**
+		*	Liste des balise 'link'
+		*	@var string[]
+		*/
+		private $LINKS = array();
+
+		/**
+		*	Liste des zones d'affichage
+		*	@var string[]
+		*/
+		private $AREAS = array();
+
+		/**
+		*	Liste des formulaires
+		*	@var string[]
+		*/
+		private $FORMS = array();
+
+		/**
+		*	Doctype de la vue
+		*	@var string
+		*/
+		private $DOCTYPE;
+
+		/**
+		*	Variables appelables depuis le template
+		*	@var mixed[]
+		*/
+		private $VARS = array();
+
+		/**
+		*	Template associé à la vue
+		*	@var string
+		*/
+		private $TEMPLATE;
+		
+		/**
+		*	Urls associées
+		*	@var string[]
+		*/
+		private $URLS = array();
+
+		/**
+		*	Fichier de config de l'appli
+		*	@var AppConfig
+		*/
+		private $CONFIG;
+
+		/**
+		*	Constructeur de la vue
+		*	@param AppConfig:
+		*	@param string: nom du module
+		*/
+		public function __construct($conf, $module) {
+			$this->CONGIG = $conf;
+			$this->DOCTYPE = $conf->default_doctype;
+			$this->MODULE = $module;
+		}
+
+		/**
+		*	Paramètre la balise title
+		*	@param string: titre
+		*
+		*	Rendu::
+		*	<code>
+		*	<title>$t</title>
+		*	</code>
+		*/
+		public function setTitle($t) {
+			$this->TITLE = '<title>' . $t . '</title>';
+		}
+		
+		// ajouter metas
+		/**
+		*	Met en forme et affiche le 'head' html de la vue
+		*/
+		private function setHead() {
+			$h = "<head>\n";
+			if (!empty($this->TITLE)) $h .= "\t" . $this->TITLE;
+			
+			foreach($this->METAS as $meta) $h .= "\n\t".$meta;
+			foreach($this->LINKS as $css) $h .= "\n\t".$css;
+			
+			$h .= "\n</head>";
+			print $h;
+		}
+
+		/**
+		*	Affecte un template
+		*
+		*	@param string: nom du template
+		*
+		*	Controlleur:
+		*	<code>
+		*	$vue->setTemplate('index');
+		*	</code>
+		*/
+		public function setTemplate($tpl) {
+			$this->TEMPLATE = $tpl;
+		}
+
+		public function addScript($src) {
+			$b = '<script language="javascript" src="http://'.$_SERVER['SERVER_NAME'].'/'.$GLOBALS['conf']->app_name.'/modules/'.$this->MODULE.'/includes/js/'.$src.'" />';
+			$this->LINKS[] = $b;
+		}
+
+		/**
+		*	Ajoute une balise link
+		*
+		*	Eviter d'utiliser cette méthode dans un contrôleur, utiliser plutot les méthodes "détaillées"
+		*	@param string:
+		*	@param string:
+		*	@param string[]:
+		*/
+		public function addLink($rel, $href, $additional = null) {
+			$b = '<link ';
+			if (is_array($additional) && !empty($additional)) {
+				foreach ($additional as $k => $v) {
+				 $b .= $k.'="'.$v.'" ';
+				}
+			}
+			$b .= 'rel="'.$rel.'" href="'.$GLOBALS["GLOB"]->BASEURL.'/modules/'.$this->MODULE.'/includes/'.$href.'" />';
+			$this->LINKS[] = $b;
+		}
+
+		/**
+		*	inclus une feuille de style CSS
+		*	@param string:
+		*
+		*	Controlleur::
+		*	<code>
+		*	$vue->addCSSLink('default');
+		*	</code>
+		*
+		*	Rendu::
+		*	<code>
+		*	<link rel="stylesheet" href="./modules/monModule/includes/css/default.css" />
+		*	</code>
+		*/
+		public function addCSSLink($href) {
+			$this->addLink('stylesheet', 'css/'.$href.'.css', array('type'=>'text/css'));
+		}
+
+		/**
+		*	Ajoute une balise <link rel="alternate"... />
+		*	@param string:
+		*	@param string:
+		*	@param string:
+		*/
+		public function addAlternateLink($href, $title, $lang) {
+			$this->addLink('alternate', $href, array(
+					'title'=>$title,
+					'hreflang'=>$lang,
+					'type'=>'text/html'));
+		}
+
+		/**
+		*	Ajoute une balise <link rel="start"... />
+		*	@param string:
+		*/
+		public function addStartLink($href) {
+			$this->addLink('start', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="next"... />
+		*	@param string:
+		*/
+		public function addNextLink($href) {
+			$this->addLink('next', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="prev"... />
+		*	@param string:
+		*/
+		public function addPrevLink($href) {
+			$this->addLink('prev', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="contents"... />
+		*	@param string:
+		*/
+		public function addContentsLink($href) {
+			$this->addLink('contents', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="index"... />
+		*	@param string:
+		*/
+		public function addIndexLink($href) {
+			$this->addLink('index', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="glossary"... />
+		*	@param string:
+		*/
+		public function addGlossaryLink($href) {
+			$this->addLink('glossary', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="copyright".../>
+		*	@param string:
+		*/
+		public function addCopyrightLink($href) {
+			$this->addLink('copyright', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="chapter"... />
+		*	@param string:
+		*/
+		public function addChapterLink($href) {
+			$this->addLink('chapter', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="section"... />
+		*	@param string:
+		*/
+		public function addSectionLink($href) {
+			$this->addLink('section', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="subsection"... />
+		*	@param string:
+		*/
+		public function addSubsectionLink($href) {
+			$this->addLink('subsection', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="appendix"... />
+		*	@param string:
+		*/
+		public function addAppendixLink($href) {
+			$this->addLink('appendix', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="help"... />
+		*	@param string:
+		*/
+		public function addHelpLink($href) {
+			$this->addLink('help', $href);
+		}
+
+		/**
+		*	Ajoute une balise <link rel="bookmark".. />
+		*	@param string:
+		*/
+		public function addBookmarkLink($href) {
+			$this->addLink('bookmark', $href);
+		}
+
+		/**
+		*	Ajoute une balise Meta
+		*
+		*	Eviter d'utiliser cette méthode soi-même, préférer les méthodes spécifiques
+		*	@param string:
+		*	@param string:
+		*	@param boolean:
+		*	@param string:
+		*/
+		public function addMeta($func, $content, $isname=true, $mtag=null) {
+			$b = '<meta ';
+			if ($isname) $b.= 'name="';
+			else $b.='http-equiv="';
+			$b.= $func.'" content="'.$content.'" ';
+			if (empty($mtag)) $b.=$mtag.' ';
+			$b.='/>';
+			$this->METAS[] = $b;
+		}
+
+		/**
+		*	Ajoute une meta 'name'
+		*
+		*	Eviter d'utiliser cette méthode soi-même, préférer les méthodes spécifiques
+		*	@param string:
+		*	@param string:
+		*	@param string:
+		*/
+		public function addMetaName($func, $content, $mtag=null) {
+			$this->addMeta($func, $content, true, $mtag);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="description"... />
+		*	@param string:
+		*/
+		public function addMetaDescription($c) {
+			$this->addMetaName('Description', $c);
+		}
+		/**
+		*	Ajoute une balise <meta name="author"... />
+		*	@param string:
+		*/
+		public function addMetaAuthor($c) {
+			$this->addMetaName('Author', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="keywords"... §>
+		*	@param string:
+		*	@param string:
+		*/
+		public function addMetaKeywords($c, $m=null) {
+			$this->addMetaName('Keywords', $c, $m);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="robots"... />
+		*	@param string:
+		*/
+		public function addMetaRobots($c) {
+			$this->addMetaName('Robots', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="revisit-later"... />
+		*	@param string:
+		*/
+		public function addMetaRevisit($c) {
+			$this->addMetaName('Revisit-later', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="copyright"... />
+		*	@param string:
+		*/
+		public function addMetaCopy($c) {
+			$this->addMetaName('Copyright', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="email"... />
+		*	@param string:
+		*/
+		public function addMetaEmail($c) {
+			$this->addMetaName('Email', $c);
+		}
+		
+		/**
+		*	Ajoute une balise <meta name="rating"... />
+		*	@param string:
+		*/
+		public function addMetaRating($c) {
+			$this->addMetaName('Rating', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="subject"... />
+		*	@param string:
+		*/
+		public function addMetaSubject($c) {
+			$this->addMetaName('Subject', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta name="date"... />
+		*	@param string:
+		*/
+		public function addMetaDate($c) {
+			$this->addMetaName('Date', $c);
+		}
+
+		/**
+		*	Ajoute une meta "http-equiv"
+		*
+		*	Eviter d'utiliser cette méthode soi-même, préférer les méthodes spécifiques
+		*	@param string:
+		*	@param string:
+		*/
+		public function addMetaEquiv($func, $cont) {
+			$this->addMeta($func, $cont, false);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="content-type"... />
+		*	@param string:
+		*/
+		public function addMetaCType($c) {
+			$this->addMetaEquiv('Content-type', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="content-script-type"... />
+		*	@param string:
+		*/
+		public function addMetaScript($c) {
+			$this->addMetaEquiv('Content-Script-Type', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="content-style-type"... />
+		*	@param string:
+		*/
+		public function addMetaStyle($c) {
+			$this->addMetaEquiv('Content-Style-Type', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="expires"... />
+		*	@param string:
+		*/
+		public function addMetaExpires($c) {
+			$this->addMetaEquiv('Expires', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="refresh"... />
+		*	@param string:
+		*/
+		public function addMetaRefresh($c) {
+			$this->addMetaEquiv('Refresh', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="content-language"... />
+		*	@param string:
+		*/
+		public function addMetaCLang($c) {
+			$this->addMetaEquiv('content-language', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="pragma"... />
+		*	@param string:
+		*/
+		public function addMetaPragma($c) {
+			$this->addMetaEquiv('pragma', $c);
+		}
+
+		/**
+		*	Ajoute une balise <meta http-equiv="revisit-after"... />
+		*	@param string:
+		*/
+		public function addMetaERevisit($c) {
+			$this->addMetaEquiv('revisit-after', $c);
+		}
+
+		/**
+		*	Affecte une zone à la vue
+		*	@param string: nom de la zone
+		*	@param string: nom du template
+		*
+		*	Exemple : Controleur::
+		*	<code>
+		*	$vue->addArea('MENUZONE', 'menu');
+		*	</code>
+		*/
+		public function addArea($area, $tpl = null) {
+			if (isset($tpl)) $a = new PwArea($this->MODULE, $tpl);
+			else $a = new PwArea($this->MODULE);
+			$this->AREAS[$area] = $a;
+		}
+
+		/**
+		*	Appelle une zone pour l'insérer dans le template
+		*	@param string: le nom de la zone
+		*
+		*	Exemple : Template::
+		*	<code>
+		*	$this->area('menu');
+		*	</code>
+		*/
+		public function area($par) {
+			require_once($this->AREAS[$par]->getTemplate());
+		}
+
+		/**
+		*	Ajoute une balise de lien
+		*	@param string:
+		*	@param string:
+		*	@param string:
+		*	@param string:
+		*
+		*	Exemple : Controlleur::
+		*	<code>
+		*	$vue->addUrl('accueil', 'index.php/module/accueil/index', 'Lien vers l'accueil');
+		*	// ou
+		*	$vue->addUrl('LIEN_VERS_LACCUEIL', 'index.php/module/accueil/index', 'Lien vers l'accueil', 'Accueil');
+		*	</code>
+		*
+		*	Resultat::
+		*	<code>
+		*	<a href="index.php/module/accueil/index" title="Lien vers l'accueil">Accueil</a>
+		*	</code>
+		*/
+		public function addUrl($name, $url, $title=null, $aname=null) {
+			if (is_null($aname)) $aname = $name;
+			if (!is_null($title)) $title = '" title="'.$title;
+			$eurl = 'http://'.$_SERVER['SERVER_NAME'].'/'.$GLOBALS['conf']->app_name.'/index.php/'.$url;
+			$this->URLS[$name] = '<a href="'.$eurl.$title.'">'.$aname.'</a>';
+		}
+
+		/**
+		*	Affiche une url pré-enregistrée
+		*	@param string: nom de l'url dans la view
+		*
+		*	Exemple : template
+		*	<code>
+		*	$this->url('LIEN_VERS_LACCUEIL');
+		*	</code>
+		*/
+		public function url($name) {
+			print $this->URLS[$name];
+		}
+
+		/**
+		*	Ajoute un formulaire html a la vue
+		*	@param string: nom du formulaire dns la vue
+		*	@param PwForm: le formulaire
+		*/
+		public function addForm($n, $f) {
+			$this->FORMS[$n] = $f;
+		}
+
+		/**
+		*	Affiche un formulaire
+		*	@param string: nom du formulaire
+		*
+		*	Exemple: Template::
+		*	<code>
+		*	$this->form('monFormulaire');
+		*	</code>
+		*/
+		public function form($f) {
+			print $this->FORMS[$f]->getForm();
+		}
+
+		/**
+		*	Assigne une variable quelconque à la vue
+		*	@param string: nom de la variable dans la vue
+		*	@param mixed: la variable elle-meme; peut être un string, un nombre, un resultset obtenu par un appel à la bdd, etc.
+		*
+		*	Exemple: Controleur::
+		*	<code>
+		*	$vue->assignVar('maVariable', $resultset);
+		*	</code>
+		*/
+		public function assignVar($n, $v) {
+			$this->VARS[$n] = $v;
+		}
+
+		/**
+		*	Retourne une variable de vue
+		*	@param string: nom de la variable
+		*	@return mixed
+		*
+		*	Exemple: Template::
+		*	<code>
+		*	// affichage simple
+		*	echo $this->vars('maVariable');
+		*
+		*	// parcourir un resultset
+		*	$rs = $this->vars('maVariable');
+		*	foreach($rs as $ligne) print $ligne->login;
+		*	</code>
+		*/
+		public function vars($k) {
+			return $this->VARS[$k];
+		}
+
+		function img($src, $alt) {
+			print '<img src="http://'.$_SERVER['SERVER_NAME'].'/'.$GLOBALS['conf']->app_name.'/modules/'.$this->MODULE.'/includes/images/'.$src.'" alt="'.$alt.'" />';
+		}
+
+		/**
+		*	Génère le flux HTML à envoyer au navigateur client
+		*	Utilise le template et les zones
+		*
+		*	Exemple : Controleur::
+		*	<code>
+		*	$vue->render();
+		*	</code>
+		*/
+		public function render() {
+			print $this->DOCTYPE;
+			print "\n<html>\n";
+			$this->setHead();
+			
+			print "\n<body>\n\n";
+			
+			if (!empty($this->TEMPLATE)) require_once('modules/'.$this->MODULE.'/templates/'.$this->TEMPLATE.'.tpl');
+			print "\n\n</body>\n</html>";
+		}
+	
+	}
+
+?>
